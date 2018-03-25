@@ -14,9 +14,11 @@ function handleEvent()
   if mess == nil then
   
   else
+  
+	monitor.scroll(-1)
     txt = "run =>"..mess
     monitor.write(txt)
-    monitor.setCursorPos(1,cY+1)   
+    monitor.setCursorPos(1,cY)   
   end
 end
 

@@ -1,0 +1,6 @@
+local arg = {...}
+
+message = arg[1]
+local modem = peripheral.wrap("top")
+
+modem.transmit(900, 2, message)

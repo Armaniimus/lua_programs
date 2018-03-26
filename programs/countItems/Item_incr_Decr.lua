@@ -20,7 +20,7 @@ local arg = { ... }
 
 --peripheral sides
 local monitor = peripheral.wrap(arg[1])
-local bundleInput = redstone.getBundledInput(arg[2])
+local redstoneSide = arg[2]
 local modem = peripheral.wrap(arg[3])
 
 --set modem send and receivechannels
@@ -77,57 +77,121 @@ modem.open(receiveChannel)
 while true do
 	event,side,sendChan,replyChan,message,senDis = os.pullEvent()
 	
+	file = fs.open(StorageFileName, "r")
+	itemCount = tonumber(file.readLine())
+	file.close()
+	
 	--Check for redstone Signal and handle increment or decrement
 	if event == "redstone" then
 		
+		--Handle RedstoneReader
+		redstoneInput = redstone.getBundledInput(redstoneSide)
+	
+		-- test for incrementColor And decrementColor
+		if(
+			colors.test (redstoneInput, colors.black) and 
+			colors.test (redstoneInput, colors.red)
+		) then
+			-- do Nothing
+		
 		-- test for incrementColor
-		if(colors.test (bundleInput, colors.black) ) then
+		elseif(colors.test (redstoneInput, colors.black) ) then
 			itemCount = itemCount + 1
-		end
 		
 		-- test for decrementColor
-		if (colors.test (bundleInput, colors.red) ) then
-			itemCount = itemCount - 1	  
+		elseif (colors.test (redstoneInput, colors.red) ) then
+			itemCount = itemCount - 1
+		
+		--test for 64incrementColor And 64decrementColor
+		elseif(
+			colors.test (redstoneInput, colors.green) and 
+			colors.test (redstoneInput, colors.orange)
+		)then
+		
+		-- test for increment64Color
+		elseif(colors.test (redstoneInput, colors.green) ) then
+			itemCount = itemCount + 64
+		
+		-- test for decrement64Color
+		elseif (colors.test (redstoneInput, colors.orange) ) then
+			itemCount = itemCount - 64
 		end
-		
-		
-		-- print to the screen
-		monitor.clearLine()
-		monitor.setCursorPos(1,1)
-		monitor.write(localItem .. "Count = " .. itemCount)
-		
-		--write result back to the file
-		file = fs.open(StorageFileName, "w")
-		file.write(itemCount)
-		file.close()
-	
-	
-	end
-	
+
 	--Handle ModemMessage
-	if message == nil then
-  
-	elseif (message == localItem) then
-		file = fs.open(StorageFileName,"r")
-		Amount = tonumber(file.readLine())
-		file.close()
+	elseif (message ~= nil) then
+		no_error, varReturn = pcall(myModemEvent, message, monitor, modem, sendChannel, receiveChannel, StorageFileName, localItem, itemCount)
 		
-		message = Amount .. " " .. localItem 
-		
-		--message
-		modem.transmit(sendChannel, receiveChannel, message)
+		if not no_error then
+			print("function call Failed")
+			print(varReturn)
+			print()
+		else
+			itemCount = varReturn
+		end
+	end 
 	
-	elseif (message == localItem .. "-nr") then
-		file = fs.open(StorageFileName,"r")
-		Amount = tonumber(file.readLine())
-		file.close()
+	
+	--myModemReader
+	function myModemEvent(message, monitor, modem, sendChannel, receiveChannel, StorageFileName, localItem, itemCount)
 		
-		message = Amount 
+		if message == nil then
 		
-		--message
-		modem.transmit(sendChannel, receiveChannel, message)
+		elseif message ~= nil then
+			message = textutils.unserialize(message)
+		
+			if (message[1] == nil ) then
+			
+			elseif (message[1] == localItem) then
+
+				--get
+				if (message[2] == "-get") then
+					
+					
+					message = itemCount 
+					modem.transmit(sendChannel, receiveChannel, message)
+				
+				--reset
+				elseif (message[2] == "-reset") then
+					
+					itemCount = 0		
+					message = localItem .. " Count reset" 
+					modem.transmit(sendChannel, receiveChannel, message)			
+				
+				-- set				
+				elseif ( 
+					message[2] == "-set" and
+					message[3] ~= nil
+				)  then
+				
+					itemCount = message[3]			
+					message = localItem .. " Count set to " .. itemCount
+					
+					modem.transmit(sendChannel, receiveChannel, message)
+				
+				--get itemCount + itemname
+				else 
+					message = itemCount .. " " .. localItem 
+					modem.transmit(sendChannel, receiveChannel, message)
+				end
+				
+				return itemCount
+			end
+		end
 	end
 	
 	
+	-- print to the screen
+	monitor.clearLine()
+	monitor.setCursorPos(1,1)
+	monitor.write(localItem .. "Count = " .. itemCount)
 	
+	--write result back to the file
+	file = fs.open(StorageFileName, "w")
+	file.write(itemCount)
+	file.close()
+	
+	--set localMemory right
+	file = fs.open(StorageFileName,"r")
+	itemCount = tonumber(file.readLine())
+	file.close()
 end

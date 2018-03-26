@@ -1,6 +1,10 @@
 local arg = {...}
 
-message = arg[1]
+if arg[1] ~= nil then
+	message = arg
+	message = textutils.serialize(message)
+end
+
 local modem = peripheral.wrap("top")
 
 modem.transmit(900, 2, message)
